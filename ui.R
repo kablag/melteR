@@ -13,8 +13,6 @@ shinyUI(fluidPage(
 
   # Application title
   titlePanel("melteR"),
-
-  
   sidebarLayout(
     sidebarPanel(      
       radioButtons("controls.source",
