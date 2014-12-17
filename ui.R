@@ -45,11 +45,11 @@ shinyUI(fluidPage(
                 "Чувствительный"),
       textInput("mut.name", 
                 "Несовпавшие с контролями", 
-                "Устойчивый"),      
-      radioButtons("lang",
-                   h4("Interface Language"),
-                   c("Русский" = "ru",
-                     "English" = "en")
+                "Устойчивый")      
+#       radioButtons("lang",
+#                    h4("Interface Language"),
+#                    c("Русский" = "ru",
+#                      "English" = "en")
       )
     ),
     
