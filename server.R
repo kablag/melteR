@@ -4,11 +4,13 @@
 #
 # http://shiny.rstudio.com
 #
-dict <- read.csv2("translation.csv", stringsAsFactors = FALSE)
+
 library(shiny)
 
-# library(devtools)
-# install_github("RDML", "kablag")
+if(!("RDML" %in% rownames(installed.packages()))) {
+  library(devtools)
+  install_github("kablag/RDML")  
+}
 
 library(RDML)
 
@@ -16,33 +18,7 @@ library(RDML)
 
 shinyServer(function(input, output) {
   vals <- reactiveValues()
-  ### UI
-  translate <- function(label) {dict[label, input$lang]}
   
-  output$ui.controls.source <- renderUI({
-    buttons <- c("standard.set", "file", "inner")
-    names(buttons) <- c(translate("controls.source.standart.set"),
-                        "Из внешнего файла",
-                        "Из файла с неизвестными образцами")
-    radioButtons("controls.source",
-                 h4(translate("controls.source.header")),
-                 buttons)
-  })
-  
-  output$ui.controls.source.standard <- renderUI({
-    files <- list.files("./positive_controls")
-    names(files) <- files
-    selectInput("controls.source.standard",
-                "Стандартный набор контролей:",
-                files)
-  })
-  
-  output$ui.controls.source.file <- renderUI({
-    fileInput("rdml.controls.file", "Файл с контрольными образцами",
-              accept=c("application/zip", ".rdml"))
-  })
-  
-  ### Logic
   if("NormMeltData" %in% names(RDML$public_methods) == FALSE) {
     RDML$set("public", "NormMeltData", function() {  
       library(qpcR)  
@@ -50,7 +26,7 @@ shinyServer(function(input, output) {
       out <- c()
       n.fdata <- ncol(private$.melt.fdata)
       progress.step <- 1/n.fdata
-      withProgress(message = "Processing Samples",
+      withProgress(message = "Обработка образцов",
                    value = 0, {
                      for(i in 1:n.fdata) {
                        data <- cbind(as.numeric(temps), as.numeric(private$.melt.fdata[, i]))
@@ -72,9 +48,9 @@ shinyServer(function(input, output) {
   rdml.obj <- reactive({
     if(is.null(input$rdml.file))      
       return(NULL)    
-    cat("loading data\n")    
+#     cat("loading data\n")    
     isolate({
-      withProgress(message = "Processing RDML data",
+      withProgress(message = "Загрузка RDML данных",
                    value = 0, {
                      rdml.obj <- RDML$new(input$rdml.file$datapath,
                                           name.pattern = "%TUBE% %NAME% %TARGET%")                     
@@ -92,12 +68,12 @@ shinyServer(function(input, output) {
   vals$controls <- reactive({
     if(is.null(rdml.obj()))
       return()
-    cat("process controls\n") 
+#     cat("process controls\n") 
     
     # get controls from standard set
     if(input$controls.source == "standard.set") {      
       isolate({
-        withProgress(message = "Processing RDML data controls",
+        withProgress(message = "Загрузка RDML данных для контролей",
                      value = 0, {
                        file <- paste0("./positive_controls/",
                                       input$controls.source.standard)
@@ -119,10 +95,9 @@ shinyServer(function(input, output) {
       if(is.null(input$rdml.controls.file))      
         return(NULL)
       isolate({
-        withProgress(message = "Processing RDML data controls",
+        withProgress(message = "Загрузка RDML данных для контролей",
                      value = 0, {
-                       file <- input$rdml.controls.file$datapath
-                       print(file)
+                       file <- input$rdml.controls.file$datapath                       
                        controls.obj <- RDML$new(file,
                                                 name.pattern = "%TUBE% %NAME% %TARGET%")                     
                      })    
@@ -146,7 +121,7 @@ shinyServer(function(input, output) {
   output$controls.table <- renderTable({
     if(is.null(vals$controls()))
       return()
-    cat("generating controls table\n")
+#     cat("generating controls table\n")
     controls.table <- lapply(vals$controls(), function(control) {
       c(control$Tube,
         control$TubeName,
@@ -169,7 +144,7 @@ shinyServer(function(input, output) {
   vals$results <- reactive({
     if(is.null(vals$controls()))
       return()
-    cat("calc results\n")
+#     cat("calc results\n")
     unkns <- rdml.obj()$GetFData(
       filter = list(method = "melt",
                     types = "unkn"),
@@ -218,7 +193,7 @@ shinyServer(function(input, output) {
   res.tbl <- reactive({
     if(is.null(vals$results()))
       return()
-    cat("generating result table\n")    
+#     cat("generating result table\n")    
     unkns.table <- lapply(vals$results(), function(unkn) {
       c(unkn$Tube,
         unkn$TubeName,
@@ -306,7 +281,7 @@ shinyServer(function(input, output) {
   output$short.result.table <- renderDataTable({
     if(is.null(vals$results()))
       return()
-    cat("generating short result table\n")
+#     cat("generating short result table\n")
     unkn.unique.names <- unique(
       sapply(vals$results(), function(unkn) {
         unkn$TubeName
@@ -346,13 +321,14 @@ output$downloadReport <- downloadHandler(
   },
   
   content = function(file) {
-    src <- normalizePath("report_ru.Rnw")
+    report.template <- "report_en.Rnw"
+    src <- normalizePath(report.template)
     
     # temporarily switch to the temp dir, in case you do not have write
     # permission to the current working directory
     owd <- setwd(tempdir())
     on.exit(setwd(owd))
-    file.copy(src, "report_ru.Rnw", overwrite = TRUE)
+    file.copy(src, report.template, overwrite = TRUE)
     
 #     library(rmarkdown)
 #     out <- render('test.Rmd', switch(
@@ -362,7 +338,7 @@ output$downloadReport <- downloadHandler(
 #     ))
     library(knitr)
 #     kn <- Sweavy2knitr("report_ru.Rnw")
-    out<- knit2pdf("report_ru.Rnw", texi2dvi="pdflatex")
+    out<- knit2pdf(report.template, texi2dvi="pdflatex")
     #out <- texi2dvi("report_ru.tex", pdf = TRUE)
     file.rename(out, file)
   }

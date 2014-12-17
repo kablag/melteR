@@ -1,0 +1,154 @@
+\documentclass[12pt, a4paper]{article}
+
+\usepackage{longtable}
+
+\usepackage{geometry}
+\geometry{verbose,tmargin=0.5cm,bmargin=0.5cm,lmargin=2.5cm,rmargin=2.5cm}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{2}
+\usepackage{url}
+\usepackage[unicode=true,pdfusetitle,
+bookmarks=true,bookmarksnumbered=true,bookmarksopen=true,bookmarksopenlevel=2,
+breaklinks=false,pdfborder={0 0 1},backref=false,colorlinks=false]
+{hyperref}
+\hypersetup{
+pdfstartview={XYZ null null 1}}
+
+<<title, results='asis', echo=FALSE>>=
+cat(paste0("\\title{\\verb|",
+           input$rdml.file[["name"]],
+           "|}"))
+@
+\title{Report}
+
+\begin{document}
+<<setup, include=FALSE, cache=FALSE, echo=FALSE>>=
+library(knitr)
+# set global chunk options
+opts_chunk$set(fig.path='figure/minimal-', fig.align='center', fig.show='hold', fig.height = 12, echo=FALSE)
+options(formatR.arrow=TRUE,width=90)
+library(xtable)
+library(RDML)
+@
+
+\maketitle
+<<settings, results='asis', echo=FALSE, include=input$rep.settings>>=
+cat("\\section{Analysis parameters}\n")
+controls.source <- c(standard.set = "Standard set")
+cat(paste0("File with unknown samples: \\verb|", 
+           input$rdml.file[["name"]],
+           "|\\\\"))
+cat(paste0("Source of control samples: \\textbf{", 
+           controls.source[input$controls.source], "}\\\\"))
+cat(paste0("Threshold $\\hat{\\sigma}$: \\textbf{", 
+           input$sigma.threshold, "}\\\\"))
+@
+
+<<short.results, results='asis', echo=FALSE, include=input$rep.results.short>>=
+cat("\\section{Results}\n")
+if(length(vals$short.result.table[,1]) == 1) {print(xtable(vals$short.result.table),
+      tabular.environment='longtable',
+      floating=FALSE)}
+if(length(vals$short.result.table[,1]) != 1) {print(xtable(vals$short.result.table[,-1]),
+      tabular.environment='longtable',
+      floating=FALSE)}
+@
+
+<<controls, results='asis', echo=FALSE, include=input$rep.controls>>=
+cat("\\section{Controls}\n")
+print(xtable(vals$controls.table),
+      tabular.environment='longtable',
+      floating=FALSE)
+@
+
+<<long.results, results='asis', echo=FALSE, include=input$rep.results.long>>=
+cat("\\section{Results detailed}\n")
+print(xtable(vals$results.table),
+      tabular.environment='longtable',
+      floating=FALSE)
+@
+
+<<plots, fig.keep = 'none', echo=FALSE, include=input$rep.plots>>=
+  vals$results.table <- vals$results.table[
+    order(vals$results.table[,1]),]
+  tube <- ""
+  first.fig <- TRUE  
+  fig.i <- 0
+  for(i in 1:nrow(vals$results.table)) {
+      if(vals$results.table[i, 1] != tube) {
+      fig.i <- fig.i + 1
+      if(fig.i != 1) {
+        dev.off()
+      }
+      pdf(file = paste0(fig.i,".pdf"))# , height = 8)      
+      tube <- vals$results.table[i, 1]      
+      n.targets.at.tube <- length(vals$results.table[which(
+        vals$results.table[, 1] == tube
+      ), 1])
+      par(mfrow=c(2, 2))
+#       par(mfrow=c(n.targets.at.tube,1))
+    }
+    sample.name <- paste(vals$results.table[i, 1],
+                         vals$results.table[i, 2],
+                         vals$results.table[i, 4],
+                         sep = " ")
+    control.i <- as.integer(vals$results.table[i, 5])
+    temps <- as.numeric(names(vals$controls()[[control.i]]$Melt))
+    plot(temps,
+         vals$controls()[[control.i]]$Melt,
+         type = "l",
+         ylim = c(1, -1), #invert y-axe
+         xlim = c(min(temps), max(temps)),
+         col = "green",
+         lwd = 2,
+         xlab = "T",
+         ylab = "norm(d(RFU)/dT)")    
+    lines(as.numeric(names(vals$results()[[sample.name]]$Melt)),
+          vals$results()[[sample.name]]$Melt,                      
+          col = "blue",
+          lwd = 2)
+    lines(as.numeric(names(vals$results()[[sample.name]]$Melt)),
+          vals$results()[[sample.name]]$substracted,          
+          col = "red",
+          lwd = 2)
+    sigma.val <-round(vals$results()[[sample.name]]$sigma,
+                      digits = 2)
+    title.els <- c(sample.name,
+                   "=",
+                   sigma.val)
+    title(bquote(.(title.els[1]) ~~~ hat(sigma) ~ .(title.els[2]) ~ .(title.els[3])))
+    legend(max(temps)*0.7, -1, legend = c(vals$controls()[[control.i]]$TubeName,
+                              vals$results()[[sample.name]]$TubeName,
+                              paste(vals$results()[[sample.name]]$TubeName,
+                                    "-",
+                                    vals$controls()[[control.i]]$TubeName,
+                                    sep = " ")),
+           col = c("green", "blue", "red"),
+           bty = "n",
+           lty = 1,
+           lwd = 2)   
+  }
+dev.off()
+@
+
+<<plot.figures, results='asis', echo=FALSE, include=input$rep.plots>>=
+cat("\\newpage")
+cat("\\section{Plots}\n")
+fig.i <- 0
+tube <- ""
+  for(i in 1:nrow(vals$results.table)) {    
+    if(vals$results.table[i, 1] != tube) {
+      fig.i <- fig.i + 1
+      tube <- vals$results.table[i, 1]
+      cat(paste0("\\subsection{", tube,
+                 " ",
+                 vals$results.table[i, 2],
+                 "}"))
+      cat(paste0("\\begin{figure}[h]\\centering\\includegraphics{",
+                 fig.i,
+                 "}\\end{figure}\n\\clearpage\n"))
+    }
+      
+}
+@
+\end{document}

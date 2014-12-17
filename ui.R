@@ -6,21 +6,31 @@
 #
 library(shiny)
 
+files <- list.files("./positive_controls")
+names(files) <- files
+
 shinyUI(fluidPage(
 
   # Application title
   titlePanel("melteR"),
 
-  # Sidebar with a slider input for number of bins
+  
   sidebarLayout(
     sidebarPanel(      
-      uiOutput("ui.controls.source"),
+      radioButtons("controls.source",
+                   h4("Источник контрольных образцов"),
+                   c("Стандартный набор" = "standard.set",
+                     "Из внешнего файла" = "file",
+                     "Из файла с неизвестными образцами" = "inner")),
       conditionalPanel(
         condition = "input['controls.source'] == 'standard.set'",
-        uiOutput("ui.controls.source.standard")),
+        selectInput("controls.source.standard",
+                    "Стандартный набор контролей:",
+                    files)),
       conditionalPanel(
         condition = "input['controls.source'] == 'file'",
-        uiOutput("ui.controls.source.file")),      
+        fileInput("rdml.controls.file", "Файл с контрольными образцами",
+                  accept=c("application/zip", ".rdml"))),      
       fileInput("rdml.file", h4("Файл с неизвестными образцами"),
                 accept=c("application/zip", ".rdml")),      
       sliderInput("sigma.threshold",
@@ -42,8 +52,7 @@ shinyUI(fluidPage(
                      "English" = "en")
       )
     ),
-
-    # Show a plot of the generated distribution
+    
     mainPanel(
       conditionalPanel(
         condition = "output.fileUploaded",
@@ -68,7 +77,7 @@ shinyUI(fluidPage(
                    h5("Включить в отчёт"),
                    checkboxInput("rep.settings", "Параметры анализа", value = TRUE),
                    checkboxInput("rep.results.short", "Таблицу с результатами", value = TRUE),
-                   checkboxInput("rep.controls", "Таблицу с контрол\u044Fми", value = TRUE),
+                   checkboxInput("rep.controls", "Таблицу с контролями", value = TRUE),
                    checkboxInput("rep.results.long", "Таблицу с подробными результатами", value = TRUE),
                    checkboxInput("rep.plots", "Графики", value = TRUE),
                    conditionalPanel(
@@ -76,8 +85,8 @@ shinyUI(fluidPage(
                      radioButtons("rep.plots.type",
                                   "Графики",
                                   c("Все" = "all",
-                                    "Только дл\u044F образцов с диким типом" = "wt",
-                                    "Только дл\u044F образцов с мутаци\u044Fми" = "mut"))
+                                    "Только для образцов с диким типом" = "wt",
+                                    "Только для образцов с мутациями" = "mut"))
                    ),
                    radioButtons('format', 'Document format', c('PDF', 'HTML', 'Word'),
                                 inline = TRUE),
