@@ -31,11 +31,11 @@ shinyUI(fluidPage(
                   accept=c("application/zip", ".rdml"))),      
       fileInput("rdml.file", h4("Файл с неизвестными образцами"),
                 accept=c("application/zip", ".rdml")),      
-      sliderInput("sigma.threshold",
-                  h4("Порог \u03C3"),
-                  min = 0,
+      sliderInput("cor.r.threshold",
+                  h4("Порог r"),
+                  min = 0.8,
                   max = 1,
-                  value = 0.1,
+                  value = 0.98,
                   step = 0.01),
       h4("Обозначения образцов"),
       textInput("wt.name", 
@@ -48,7 +48,7 @@ shinyUI(fluidPage(
 #                    h4("Interface Language"),
 #                    c("Русский" = "ru",
 #                      "English" = "en")
-      )
+#       )
     ),
     
     mainPanel(
@@ -63,7 +63,8 @@ shinyUI(fluidPage(
                             h5("Контрольные образцы"),                   
                             tableOutput("controls.table")),
                      column(6,
-                            h5("Графики"),
+                            checkboxInput("show.cor", "Отображать корреляцию",
+                                          value = TRUE),
 #                             conditionalPanel(
 #                               condition = "output.rowNotPlotted",
 #                               helpText("Нажмите на реееед в таблице ниже длееее отображениеее")),

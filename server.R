@@ -13,34 +13,41 @@ if(!("RDML" %in% rownames(installed.packages()))) {
 }
 
 library(RDML)
-
-
+library(MBmca) 
+library(plotrix)
+library(ggplot2)
 
 shinyServer(function(input, output) {
   vals <- reactiveValues()
   
   if("NormMeltData" %in% names(RDML$public_methods) == FALSE) {
     RDML$set("public", "NormMeltData", function() {  
-      library(qpcR)  
-      temps <- rownames(private$.melt.fdata)
+       
+      temps <- as.numeric(rownames(private$.melt.fdata))
       out <- c()
       n.fdata <- ncol(private$.melt.fdata)
       progress.step <- 1/n.fdata
       withProgress(message = "Обработка образцов",
                    value = 0, {
                      for(i in 1:n.fdata) {
-                       data <- cbind(as.numeric(temps), as.numeric(private$.melt.fdata[, i]))
-                       mcurve<-invisible(meltcurve(data,
-                                                   temps=1,
-                                                   fluo=2,
-                                                   norm=TRUE,
-                                                   plot=FALSE))    
-                       mcurve.norm <- qpcR:::rescale(mcurve[[1]]$df.dT, tomin=0, tomax=1)
-                       out <- cbind(out, mcurve.norm)
-                       rownames(out) <- mcurve[[1]]$Temp
+#                        data <- cbind(temps, as.numeric(private$.melt.fdata[, i]))
+#                        mcurve<-invisible(meltcurve(data,
+#                                                    temps=1,
+#                                                    fluo=2,
+#                                                    norm=TRUE,
+#                                                    plot=FALSE))    
+#                        mcurve.norm <- qpcR:::rescale(mcurve[[1]]$df.dT, tomin=0, tomax=1)                       
+                       mcurve.norm <- mcaSmoother(temps, private$.melt.fdata[, i], 
+                                                  minmax = TRUE)
+                       mcurve.diff <- suppressMessages(diffQ(mcurve.norm,
+                                            verbose = TRUE)$xy[["d(F) / dT"]])
+#                      
+                       out <- cbind(out, mcurve.diff)                       
+                       #                        rownames(out) <- mcurve[[1]]$Temp
                        incProgress(progress.step)
                      }
-                   })      
+                   })
+      rownames(out) <- temps[2:(length(temps) - 1)]
       private$.melt.fdata <- out  
     })
   }
@@ -156,26 +163,29 @@ shinyServer(function(input, output) {
                                        unkn$FDataName)
                       unkn$result <- input$mut.name
                       unkn$result.i <- NA
-                      unkn$sigma <- NA
+                      unkn$cor.r <- NA
                       unkn$substracted <- NA
                       for(i in 1:length(vals$controls())) {                        
                         if(unkn$Target == vals$controls()[[i]]$Target){
                           substr <- unkn$Melt - vals$controls()[[i]]$Melt                          
                           substr.model <- lm(substr ~ as.numeric(names(unkn$Melt)))        
-                          sigma <- summary(substr.model)$sigma
-                          if(is.na(unkn$sigma)) {                            
-                            if(sigma < input$sigma.threshold){                              
+                         cor.r <- cor(unkn$Melt,
+                                       vals$controls()[[i]]$Melt)
+                         
+                          if(is.na(unkn$cor.r)) {                            
+                            if(cor.r > input$cor.r.threshold){                              
                               unkn$result <- vals$controls()[[i]]$FDataName 
                             }
                             unkn$result.i <- i
-                            unkn$sigma <- sigma
+                            unkn$cor.r <- cor.r
                             unkn$substracted <- substr
                           }                                    
                           else {
-                            if(sigma < unkn$sigma) {
-                              unkn$sigma <- sigma
+#                             if(cor.r < unkn$cor.r) {
+                            if(cor.r > unkn$cor.r) {
+                              unkn$cor.r <- cor.r
                               unkn$substracted <- substr
-                              if(sigma < input$sigma.threshold){
+                              if(cor.r > input$cor.r.threshold){
                                 unkn$result.i <- i
                                 unkn$result <- vals$controls()[[i]]$FDataName
                               }
@@ -200,7 +210,7 @@ shinyServer(function(input, output) {
         unkn$Dye,
         unkn$Target,
         unkn$result.i,
-        round(unkn$sigma, digits = 2),        
+        round(unkn$cor.r, digits = 2),        
         unkn$result
       )
     })    
@@ -213,7 +223,7 @@ shinyServer(function(input, output) {
                                             "Канал",
                                             "Мишень",
                                             "Контроль",
-                                            "sigma",
+                                            "r",
                                             "Результат")))
     vals$results.table <- unkns.table
     return(unkns.table)
@@ -239,38 +249,56 @@ shinyServer(function(input, output) {
                          input$selected.row[2],
                          input$selected.row[4],
                          sep = " ")
-    plot(as.numeric(names(vals$controls()[[control.i]]$Melt)),
-         vals$controls()[[control.i]]$Melt,
-         type = "l",
-         ylim = c(1, -1), #invert y-axe
-         xlim = c(40, 80),
-         col = "green",
-         lwd = 2,
-         xlab = "T",
-         ylab = "norm(d(RFU)/dT)")    
-    lines(as.numeric(names(vals$results()[[sample.name]]$Melt)),
-          vals$results()[[sample.name]]$Melt,                      
-          col = "blue",
-          lwd = 2)
-    lines(as.numeric(names(vals$results()[[sample.name]]$Melt)),
-          vals$results()[[sample.name]]$substracted,          
-          col = "red",
-          lwd = 2)
-    title.els <- c(sample.name,
-                   "=",
-                         round(vals$results()[[sample.name]]$sigma,
-                         digits = 2))
-    title(bquote(.(title.els[1]) ~~~ hat(sigma) ~ .(title.els[2]) ~ .(title.els[3])))
-    legend(70, -1, legend = c(vals$controls()[[control.i]]$TubeName,
-                              vals$results()[[sample.name]]$TubeName,
-                              paste(vals$results()[[sample.name]]$TubeName,
-                                    "-",
-                                    vals$controls()[[control.i]]$TubeName,
-                                    sep = " ")),
-           col = c("green", "blue", "red"),
-           bty = "n",
-           lty = 1,
-           lwd = 2)
+#     to.min.max.fluor <- c(vals$controls()[[control.i]]$Melt,
+#                           vals$results()[[sample.name]]$Melt,
+#                           vals$results()[[sample.name]]$substracted)
+#     min.f <- min(to.min.max.fluor)
+#     max.f <- max(to.min.max.fluor)
+    to.min.max.t <- as.numeric(names(vals$controls()[[control.i]]$Melt))
+    min.t <- min(to.min.max.t)
+    max.t <- max(to.min.max.t)
+    scaled.result <- rescale(vals$results()[[sample.name]]$Melt,
+                             c(min.t, max.t))
+    
+    tmp <- data.frame(temp = c(to.min.max.t,
+                               as.numeric(names(vals$results()[[sample.name]]$Melt))),
+                               #to.min.max.t),
+#                                scaled.result),
+                      fluor = c(vals$controls()[[control.i]]$Melt * -1,
+                                vals$results()[[sample.name]]$Melt * -1),
+                                #vals$results()[[sample.name]]$substracted * -1),
+#                                 vals$controls()[[control.i]]$Melt * -1),
+                      name = rep(c(sample.name,
+                                   vals$controls()[[control.i]]$FDataName),
+                                 each = length(to.min.max.t)))
+if(input$show.cor) {
+  tmp <- do.call("rbind",list(tmp,
+               data.frame(temp = scaled.result,
+                          fluor = vals$controls()[[control.i]]$Melt * -1,
+                          name = rep("Кор.", length(to.min.max.t)))))
+}
+    
+    tmplm <- data.frame(control = vals$controls()[[control.i]]$Melt * -1,
+                        sample = scaled.result)
+    model.y <- lm(control ~ sample, data = tmplm)
+    coef.y <- coef(model.y)
+    p <- qplot(temp, fluor, data = tmp, geom = "path", color = name,
+          main = paste0(sample.name,
+                       "; r = ",
+                       round(vals$results()[[sample.name]]$cor.r,
+                             digits = 2)
+                       ),
+          ylab = "RFU",
+          xlab = "Температура, °C") +
+  theme(legend.position="bottom") +
+  theme(legend.title=element_blank())
+if(input$show.cor){
+p <- p +
+  geom_abline(intercept=coef.y[1],
+              slope=coef.y[2])
+}
+p
+
   })
 #   output$rowNotPlotted <- reactive({
 # #     print(output$row.plot())
