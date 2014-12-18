@@ -22,7 +22,7 @@ shinyServer(function(input, output) {
   
   if("NormMeltData" %in% names(RDML$public_methods) == FALSE) {
     RDML$set("public", "NormMeltData", function() {  
-       
+      
       temps <- as.numeric(rownames(private$.melt.fdata))
       out <- c()
       n.fdata <- ncol(private$.melt.fdata)
@@ -30,18 +30,18 @@ shinyServer(function(input, output) {
       withProgress(message = "Обработка образцов",
                    value = 0, {
                      for(i in 1:n.fdata) {
-#                        data <- cbind(temps, as.numeric(private$.melt.fdata[, i]))
-#                        mcurve<-invisible(meltcurve(data,
-#                                                    temps=1,
-#                                                    fluo=2,
-#                                                    norm=TRUE,
-#                                                    plot=FALSE))    
-#                        mcurve.norm <- qpcR:::rescale(mcurve[[1]]$df.dT, tomin=0, tomax=1)                       
+                       #                        data <- cbind(temps, as.numeric(private$.melt.fdata[, i]))
+                       #                        mcurve<-invisible(meltcurve(data,
+                       #                                                    temps=1,
+                       #                                                    fluo=2,
+                       #                                                    norm=TRUE,
+                       #                                                    plot=FALSE))    
+                       #                        mcurve.norm <- qpcR:::rescale(mcurve[[1]]$df.dT, tomin=0, tomax=1)                       
                        mcurve.norm <- mcaSmoother(temps, private$.melt.fdata[, i], 
                                                   minmax = TRUE)
                        mcurve.diff <- suppressMessages(diffQ(mcurve.norm,
-                                            verbose = TRUE)$xy[["d(F) / dT"]])
-#                      
+                                                             verbose = TRUE)$xy[["d(F) / dT"]])
+                       #                      
                        out <- cbind(out, mcurve.diff)                       
                        #                        rownames(out) <- mcurve[[1]]$Temp
                        incProgress(progress.step)
@@ -55,7 +55,7 @@ shinyServer(function(input, output) {
   rdml.obj <- reactive({
     if(is.null(input$rdml.file))      
       return(NULL)    
-#     cat("loading data\n")    
+    #     cat("loading data\n")    
     isolate({
       withProgress(message = "Загрузка RDML данных",
                    value = 0, {
@@ -75,7 +75,7 @@ shinyServer(function(input, output) {
   vals$controls <- reactive({
     if(is.null(rdml.obj()))
       return()
-#     cat("process controls\n") 
+    #     cat("process controls\n") 
     
     # get controls from standard set
     if(input$controls.source == "standard.set") {      
@@ -85,16 +85,16 @@ shinyServer(function(input, output) {
                        file <- paste0("./positive_controls/",
                                       input$controls.source.standard)
                        controls.obj <- RDML$new(file,
-                                            name.pattern = "%TUBE% %NAME% %TARGET%")                     
+                                                name.pattern = "%TUBE% %NAME% %TARGET%")                     
                      })    
-        })
+      })
       controls.obj$NormMeltData()
       return(
         controls.obj$GetFData(
           filter = list(method = "melt",
                         types = "pos"),
           as.table = FALSE)
-        )
+      )
     }
     
     # get controls from other file
@@ -128,7 +128,7 @@ shinyServer(function(input, output) {
   output$controls.table <- renderTable({
     if(is.null(vals$controls()))
       return()
-#     cat("generating controls table\n")
+    #     cat("generating controls table\n")
     controls.table <- lapply(vals$controls(), function(control) {
       c(control$Tube,
         control$TubeName,
@@ -151,7 +151,7 @@ shinyServer(function(input, output) {
   vals$results <- reactive({
     if(is.null(vals$controls()))
       return()
-#     cat("calc results\n")
+    #     cat("calc results\n")
     unkns <- rdml.obj()$GetFData(
       filter = list(method = "melt",
                     types = "unkn"),
@@ -160,7 +160,7 @@ shinyServer(function(input, output) {
     unkns <- lapply(unkns,
                     function(unkn) {
                       unkns.names <<- c(unkns.names,
-                                       unkn$FDataName)
+                                        unkn$FDataName)
                       unkn$result <- input$mut.name
                       unkn$result.i <- NA
                       unkn$cor.r <- NA
@@ -169,9 +169,9 @@ shinyServer(function(input, output) {
                         if(unkn$Target == vals$controls()[[i]]$Target){
                           substr <- unkn$Melt - vals$controls()[[i]]$Melt                          
                           substr.model <- lm(substr ~ as.numeric(names(unkn$Melt)))        
-                         cor.r <- cor(unkn$Melt,
+                          cor.r <- cor(unkn$Melt,
                                        vals$controls()[[i]]$Melt)
-                         
+                          
                           if(is.na(unkn$cor.r)) {                            
                             if(cor.r > input$cor.r.threshold){                              
                               unkn$result <- vals$controls()[[i]]$FDataName 
@@ -181,7 +181,7 @@ shinyServer(function(input, output) {
                             unkn$substracted <- substr
                           }                                    
                           else {
-#                             if(cor.r < unkn$cor.r) {
+                            #                             if(cor.r < unkn$cor.r) {
                             if(cor.r > unkn$cor.r) {
                               unkn$cor.r <- cor.r
                               unkn$substracted <- substr
@@ -194,7 +194,7 @@ shinyServer(function(input, output) {
                         }
                         
                       }                                                                  
-                    return(unkn)                    
+                      return(unkn)                    
                     })
     names(unkns) <- unkns.names    
     return(unkns)
@@ -203,7 +203,7 @@ shinyServer(function(input, output) {
   res.tbl <- reactive({
     if(is.null(vals$results()))
       return()
-#     cat("generating result table\n")    
+    #     cat("generating result table\n")    
     unkns.table <- lapply(vals$results(), function(unkn) {
       c(unkn$Tube,
         unkn$TubeName,
@@ -249,11 +249,11 @@ shinyServer(function(input, output) {
                          input$selected.row[2],
                          input$selected.row[4],
                          sep = " ")
-#     to.min.max.fluor <- c(vals$controls()[[control.i]]$Melt,
-#                           vals$results()[[sample.name]]$Melt,
-#                           vals$results()[[sample.name]]$substracted)
-#     min.f <- min(to.min.max.fluor)
-#     max.f <- max(to.min.max.fluor)
+    #     to.min.max.fluor <- c(vals$controls()[[control.i]]$Melt,
+    #                           vals$results()[[sample.name]]$Melt,
+    #                           vals$results()[[sample.name]]$substracted)
+    #     min.f <- min(to.min.max.fluor)
+    #     max.f <- max(to.min.max.fluor)
     to.min.max.t <- as.numeric(names(vals$controls()[[control.i]]$Melt))
     min.t <- min(to.min.max.t)
     max.t <- max(to.min.max.t)
@@ -261,55 +261,46 @@ shinyServer(function(input, output) {
                              c(min.t, max.t))
     
     tmp <- data.frame(temp = c(to.min.max.t,
-                               as.numeric(names(vals$results()[[sample.name]]$Melt))),
-                               #to.min.max.t),
-#                                scaled.result),
+                               as.numeric(names(vals$results()[[sample.name]]$Melt))), 
                       fluor = c(vals$controls()[[control.i]]$Melt * -1,
-                                vals$results()[[sample.name]]$Melt * -1),
-                                #vals$results()[[sample.name]]$substracted * -1),
-#                                 vals$controls()[[control.i]]$Melt * -1),
+                                vals$results()[[sample.name]]$Melt * -1),                                
                       name = rep(c(sample.name,
                                    vals$controls()[[control.i]]$FDataName),
                                  each = length(to.min.max.t)))
-if(input$show.cor) {
-  tmp <- do.call("rbind",list(tmp,
-               data.frame(temp = scaled.result,
-                          fluor = vals$controls()[[control.i]]$Melt * -1,
-                          name = rep("Кор.", length(to.min.max.t)))))
-}
+    if(input$show.cor) {
+      tmp <- do.call("rbind",list(tmp,
+                                  data.frame(temp = scaled.result,
+                                             fluor = vals$controls()[[control.i]]$Melt * -1,
+                                             name = rep("Кор.", length(to.min.max.t)))))
+    }
     
     tmplm <- data.frame(control = vals$controls()[[control.i]]$Melt * -1,
                         sample = scaled.result)
     model.y <- lm(control ~ sample, data = tmplm)
     coef.y <- coef(model.y)
     p <- qplot(temp, fluor, data = tmp, geom = "path", color = name,
-          main = paste0(sample.name,
-                       "; r = ",
-                       round(vals$results()[[sample.name]]$cor.r,
-                             digits = 2)
-                       ),
-          ylab = "RFU",
-          xlab = "Температура, °C") +
-  theme(legend.position="bottom") +
-  theme(legend.title=element_blank())
-if(input$show.cor){
-p <- p +
-  geom_abline(intercept=coef.y[1],
-              slope=coef.y[2])
-}
-p
-
+               main = paste0(sample.name,
+                             "; r = ",
+                             round(vals$results()[[sample.name]]$cor.r,
+                                   digits = 2)
+               ),
+               ylab = "RFU",
+               xlab = "Температура, °C") +
+      theme(legend.position="bottom") +
+      theme(legend.title=element_blank())
+    if(input$show.cor){
+      p <- p +
+        geom_abline(intercept=coef.y[1],
+                    slope=coef.y[2])
+    }
+    p
+    
   })
-#   output$rowNotPlotted <- reactive({
-# #     print(output$row.plot())
-#     return(is.null(output$row.plot))
-#   })
-#   outputOptions(output, 'rowNotPlotted', suspendWhenHidden=FALSE)
   
   output$short.result.table <- renderDataTable({
     if(is.null(vals$results()))
       return()
-#     cat("generating short result table\n")
+    #     cat("generating short result table\n")
     unkn.unique.names <- unique(
       sapply(vals$results(), function(unkn) {
         unkn$TubeName
@@ -341,34 +332,34 @@ p
     return(result.table)
   })
   
-output$downloadReport <- downloadHandler(
-  filename = function() {
-    paste('my-report', sep = '.', switch(
-      input$format, PDF = 'pdf', HTML = 'html', Word = 'docx'
-    ))
-  },
-  
-  content = function(file) {
-    report.template <- "report_en.Rnw"
-    src <- normalizePath(report.template)
+  output$downloadReport <- downloadHandler(
+    filename = function() {
+      paste('my-report', sep = '.', switch(
+        input$format, PDF = 'pdf', HTML = 'html', Word = 'docx'
+      ))
+    },
     
-    # temporarily switch to the temp dir, in case you do not have write
-    # permission to the current working directory
-    owd <- setwd(tempdir())
-    on.exit(setwd(owd))
-    file.copy(src, report.template, overwrite = TRUE)
-    
-#     library(rmarkdown)
-#     out <- render('test.Rmd', switch(
-#       input$format,
-#       PDF = pdf_document(), HTML = html_document(), Word = word_document(),
-#       encoding = "UTF-8"
-#     ))
-    library(knitr)
-#     kn <- Sweavy2knitr("report_ru.Rnw")
-    out<- knit2pdf(report.template, texi2dvi="pdflatex")
-    #out <- texi2dvi("report_ru.tex", pdf = TRUE)
-    file.rename(out, file)
-  }
-)
+    content = function(file) {
+      report.template <- "report_en.Rnw"
+      src <- normalizePath(report.template)
+      
+      # temporarily switch to the temp dir, in case you do not have write
+      # permission to the current working directory
+      owd <- setwd(tempdir())
+      on.exit(setwd(owd))
+      file.copy(src, report.template, overwrite = TRUE)
+      
+      #     library(rmarkdown)
+      #     out <- render('test.Rmd', switch(
+      #       input$format,
+      #       PDF = pdf_document(), HTML = html_document(), Word = word_document(),
+      #       encoding = "UTF-8"
+      #     ))
+      library(knitr)
+      #     kn <- Sweavy2knitr("report_ru.Rnw")
+      out<- knit2pdf(report.template, texi2dvi="pdflatex")
+      #out <- texi2dvi("report_ru.tex", pdf = TRUE)
+      file.rename(out, file)
+    }
+  )
 })
